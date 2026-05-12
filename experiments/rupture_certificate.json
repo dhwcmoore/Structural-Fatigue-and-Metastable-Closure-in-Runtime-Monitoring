@@ -1,0 +1,22 @@
+{
+  "status": "HARD_RUPTURE",
+  "latent_projection": [0.6696, 0.8831],
+  "witness_pair": {
+    "logic": "admissibility_violation",
+    "input_x_dim0": 0.2000,
+    "input_y_dim0": 0.9000,
+    "projection_x": [0.6363, 0.8635],
+    "projection_y": [0.7029, 0.9028],
+    "action_x": "Maintain",
+    "action_y": "EStop",
+    "divergence": "safety_critical"
+  },
+  "phenomenological_residue": {
+    "curvature_divergence": 0.0968,
+    "interval_widening_frequency": 33,
+    "unresolved_bifurcation_count": 8,
+    "rupture_pressure": 0.6992,
+    "inheritance_summary": "Unresolved bifurcation beginning at t=51 (OSCILLATION) led to forced collapse of pressure-sensitivity boundary after 33 revision(s). Final projection distance: 0.0773."
+  },
+  "meta_state_status": "failed_stabilization"
+}

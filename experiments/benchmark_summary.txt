@@ -1,0 +1,42 @@
+
+Stak-PSAL Multi-Modal Industrial Benchmark
+  1300 runs  (100 seeds × 13 boost levels)
+
+  Degradation rates: pressure=0.020  temperature=0.012  flow=0.007  vibration=0.015
+
+  Regime distribution:
+    R0 never_meta:    0 / 1300
+    R1 imm_fail:     10 / 1300
+    R2 fragile:     190 / 1300
+    R3 recovered:   1100 / 1300
+
+  b_crit = 0.10  (lowest boost with R3 > 50%)
+
+  CRITICAL forecast confusion matrix:
+    TP=200  FP=0  FN=0  TN=1100
+    Recall=100.0%  Precision=100.0%
+
+  Lead time (CRITICAL → rupture): n=200  mean=13.7  min=7  max=24
+
+  Mean cumulative fatigue F_n by regime:
+    R1 imm_fail  : 2.868
+    R2 fragile   : 2.999
+    R3 recovered : 0.216
+
+  Metastable Recovery Principle (R2 runs with ≥ 2 episodes, n=190):
+    Separation margin strictly decreasing : 123 / 190  (65%)
+    Fatigue non-decreasing across episodes: 118 / 190  (62%)
+    Elasticity strictly decreasing         :  72 / 190  (38%)
+    All three conditions simultaneously    :  72 / 190  (38%)
+
+  Interpretation:
+  Metastable closure (Regime 2) recurs under multi-modal degradation
+  with the same structural signature as the base scenario:
+    - repeated apparent reclosure
+    - monotonic fatigue accumulation
+    - declining separation margin
+    - decreasing recovery elasticity
+  The b_crit threshold adapts to the effective degradation pressure
+  from the dominant modality (pressure), confirming that the
+  enrichment/degradation balance governs the regime boundary.
+
