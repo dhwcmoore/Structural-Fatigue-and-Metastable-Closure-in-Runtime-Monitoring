@@ -33,11 +33,11 @@ let make_inputs () =
 
 let print_header () =
   print_string "timestep,mx_0,mx_1,my_0,my_1,dist,status,tension,gradient,\
-tension_slope,rupt_press,elast,instab\n"
+tension_slope,rupt_press,elast,instab,horizon\n"
 
 let print_row (s : machine_state) =
   let d = Vec.dist s.projection_x s.projection_y in
-  Printf.printf "%d,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%.4f,%.6f,%.4f,%.6f,%s\n"
+  Printf.printf "%d,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%.4f,%.4f,%.6f,%.4f,%.6f,%s,%d\n"
     s.timestep
     s.projection_x.(0) s.projection_x.(1)
     s.projection_y.(0) s.projection_y.(1)
@@ -49,6 +49,7 @@ let print_row (s : machine_state) =
     s.tension.rupture_pressure
     s.tension.recovery_elasticity
     (Instability.pp_level (Instability.estimate s))
+    (Instability.horizon_estimate s)
 
 (* ── Stderr event log ────────────────────────────────────────────────── *)
 
@@ -107,8 +108,12 @@ let () =
   print_header ();
   print_row !state;
 
-  let finished  = ref false in
-  let prev_meta = ref false in   (* whether previous step was META_REVIEW *)
+  let finished          = ref false in
+  let prev_meta         = ref false in   (* whether previous step was META_REVIEW *)
+  let hdc_emitted       = ref false in   (* horizon debt certificate emitted once  *)
+  (* Tracks (dt, delta, horizon, timestep) from the previous iteration so
+     the HDC can compute which mechanisms aged out since then.            *)
+  let prev_step_params  = ref None in
 
   for _t = 1 to total_steps do
     if not !finished then begin
@@ -126,6 +131,46 @@ let () =
 
       print_row !state;
       log_event !state;
+
+      (* Snapshot current dt/delta/horizon before the HDC check so they are
+         available as prev_step_params in the next iteration.              *)
+      let curr_dt    = !state.prev_dist in
+      let curr_delta = max 0.0 (-. !state.prev_gradient) in
+      let curr_h     = Instability.horizon_estimate !state in
+
+      (* Emit a Horizon Debt Certificate on the first step where forced
+         escalation fires: in META_REVIEW with h_t ≤ admissibility_lag.
+         The certificate lists viable enrichment mechanisms ranked by whether
+         they can restore timely admissibility before the horizon closes,
+         plus an opportunity_cost block identifying mechanisms that were
+         certified viable at the previous step but have now aged out.      *)
+      if not !hdc_emitted then begin
+        let in_meta = match !state.status with MetaReview _ -> true | _ -> false in
+        if in_meta && Instability.horizon_debt curr_h then begin
+          let req  = Instability.required_meta_steps curr_h in
+          let cert = Enrichment.build_hdc
+            ~dt:curr_dt ~delta:curr_delta ~horizon:curr_h
+            ~steps_in_meta:!state.steps_in_meta
+            ~required_steps:req
+            ~timestep:!state.timestep
+            ~prev_params:!prev_step_params ()
+          in
+          let json = Enrichment.to_json cert in
+          let oc = open_out "horizon_debt_certificate.json" in
+          output_string oc json;
+          close_out oc;
+          Printf.eprintf
+            "[t=%02d] HORIZON DEBT  h=%d  lag=%d  recommended=%s\n\
+             \         → horizon_debt_certificate.json\n"
+            !state.timestep curr_h admissibility_lag
+            (match cert.Enrichment.hdc_recommended with
+             | None   -> "none"
+             | Some o -> pp_enrichment_kind o.kind);
+          hdc_emitted := true
+        end
+      end;
+
+      prev_step_params := Some (curr_dt, curr_delta, curr_h, !state.timestep);
 
       (match !state.status with
        | HardRupture cert ->

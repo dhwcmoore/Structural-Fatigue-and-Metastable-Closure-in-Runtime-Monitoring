@@ -9,6 +9,16 @@ let epsilon_collapse = 0.08
 (* Distance below which the system enters heightened tension (META_REVIEW zone) *)
 let epsilon_meta = 0.22
 
+(* ── Monitor policy constants ────────────────────────────────────────── *)
+
+(* Evidence-accumulation delay: META_REVIEW steps required before the critical
+   signal activates.  Sound only under the side condition h_t > admissibility_lag. *)
+let admissibility_lag = 2
+
+(* Regularisation floor for horizon estimation: prevents division by zero
+   when the convergence rate is near zero.                                *)
+let horizon_eta = 1e-4
+
 (* ── Action space ────────────────────────────────────────────────────── *)
 
 type action = Maintain | EStop
@@ -93,3 +103,43 @@ type machine_state = {
   tension_at_enrichment : float;      (* tension_score when enrichment last fired      *)
   steps_in_meta         : int;        (* steps elapsed in current META_REVIEW episode  *)
 }
+
+(* ── Enrichment mechanisms (Table 3) ─────────────────────────────────── *)
+(* The five intervention pathways available when horizon debt is detected. *)
+
+type enrichment_kind =
+  | MatrixBoost           (* direct W update — fast but unauthenticated in adversarial settings *)
+  | AdaptiveSampling      (* increased sampling rate; improves d_t estimate                     *)
+  | SensorEscalation      (* independent observation channel; certified pathway                 *)
+  | ModalityAugmentation  (* corroborating evidence from a secondary modality                   *)
+  | OperatorEscalation    (* external human intervention; highest latency                       *)
+
+let pp_enrichment_kind = function
+  | MatrixBoost          -> "matrix_boost"
+  | AdaptiveSampling     -> "adaptive_sampling"
+  | SensorEscalation     -> "sensor_escalation"
+  | ModalityAugmentation -> "modality_augmentation"
+  | OperatorEscalation   -> "operator_escalation"
+
+type enrichment_option = {
+  kind          : enrichment_kind;
+  latency_steps : int;    (* steps before mechanism takes effect            *)
+  expected_gain : float;  (* predicted increase in separation d_t           *)
+  confidence    : float;  (* q_m: reliability of that gain, ∈ [0,1]        *)
+  cost          : float;  (* operational cost ∈ [0,1]                      *)
+  attack_risk   : float;  (* adversarial exposure if activated ∈ [0,1]     *)
+  authenticated : bool;   (* certified pathway in the deployment context    *)
+}
+
+(* Viability hierarchy: maps to the three STAK-PSAL zones.               *)
+type enrichment_viability =
+  | NotViable       (* mechanism cannot arrive in time or gain is insufficient *)
+  | SurvivalViable  (* post_dt > ε_c: prevents hard rupture; stays in META_REVIEW *)
+  | ReclosureViable (* post_dt > ε_m: exits META_REVIEW zone, restores CLOSED    *)
+  | DurableViable   (* ReclosureViable AND h_post > admissibility_lag            *)
+
+let pp_viability = function
+  | NotViable       -> "not_viable"
+  | SurvivalViable  -> "survival_viable"
+  | ReclosureViable -> "reclosure_viable"
+  | DurableViable   -> "durable_viable"
