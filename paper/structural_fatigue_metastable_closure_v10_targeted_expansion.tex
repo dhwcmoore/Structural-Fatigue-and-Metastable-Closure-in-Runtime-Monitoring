@@ -19,6 +19,8 @@
 
 % ── Vertical spacing tightening ───────────────────────────────────────────────
 \setlength{\parskip}{0pt}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{0.92}
 
 \setlength{\abovedisplayskip}{5pt plus 1pt minus 1pt}
 \setlength{\belowdisplayskip}{5pt plus 1pt minus 1pt}
@@ -64,6 +66,7 @@
           innertopmargin=6pt,innerbottommargin=6pt,
           linewidth=0.8pt]{tracebox}
 
+% Draft version marker: v10 -- targeted expansion after confirming references do not count toward the 16-page body limit
 \begin{document}
 
 \title{Structural Fatigue and Metastable Closure in Runtime Monitoring}
@@ -99,14 +102,22 @@ fatigue and future rupture trajectory.
 We introduce STAK-PSAL (Structural Tension and Admissibility with a
 Parallel Structural Assurance Layer), a runtime monitoring architecture
 for detecting metastable closure under cumulative admissibility fatigue.
+The intended domain is continuous or quasi-continuous degradation in
+cyber-physical observation maps. This matters: the argument does not
+begin from a general theory of intelligent systems, nor from discrete
+symbol generation, but from a setting in which a safety-relevant
+separation margin can narrow smoothly while ordinary outputs remain
+nominal. The scope restriction is methodological rather than incidental;
+it is what allows fatigue, horizon, and enrichment to be treated as
+runtime quantities rather than as post hoc explanations of failure.
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{Identical runtime snapshots; divergent structural states
   (empirical means, 7,800 runs)}
 \label{tab:hidden}
-\small
-\begin{tabular}{lll}
+\footnotesize
+\begin{tabular}{@{}p{0.28\linewidth}p{0.31\linewidth}p{0.31\linewidth}@{}}
 \toprule
 \textbf{Property} & \textbf{Stable recovery (R3)} & \textbf{Metastable closure (R2)} \\
 \midrule
@@ -150,9 +161,9 @@ present identical runtime status; only $\mathcal{F}_n$ distinguishes
 them.
 \end{example}
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.75\linewidth]{fig_blindspot.pdf}
+\includegraphics[width=0.70\linewidth]{fig_blindspot.pdf}
 \caption{Statistical normality may coexist with admissibility collapse.
 Output monitoring remains silent while $d_t$ approaches $\ecollapse$.}
 \label{fig:blindspot}
@@ -170,26 +181,16 @@ $\varepsilon' < \varepsilon$ is guaranteed in bounded steps
 validated as a predictive estimator: in the evaluated model family,
 \st{critical} has zero false negatives and mean lead time 11.6 to 13.7
 steps across 7,800 runs (Sections~\ref{sec:monitor}--\ref{sec:experiments}).
-The monitor is scoped to continuous degradation; applicability beyond
-this regime is an open boundary (Section~\ref{sec:limits}).
-Table~\ref{tab:comparison-design} situates the contribution.
-
-\begin{table}[H]
-\centering
-\caption{Existing monitors and their blind spot for distinguishability collapse}
-\label{tab:comparison-design}
-\small
-\begin{tabular}{ll>{\raggedright\arraybackslash}p{.32\linewidth}}
-\toprule
-\textbf{Approach} & \textbf{What it detects} & \textbf{What it misses} \\
-\midrule
-Anomaly detection    & unusual input traces          & distinguishability collapse \\
-Drift detection      & distributional shift          & safety-equivalence collapse \\
-Uncertainty monitor  & confidence loss               & admissibility margin collapse \\
-STAK-PSAL            & distinguishability degradation & out-of-scope degradation \\
-\bottomrule
-\end{tabular}
-\end{table}
+\emph{Fifth}, the enrichment mechanism is identified as a security boundary:
+the same elasticity that permits recovery can be exhausted by repeated
+bounded perturbations, producing adversarial elasticity inversion
+(Sections~\ref{sec:estimators} and~\ref{sec:security}). The monitor is
+scoped to continuous degradation; applicability beyond this regime is an
+open boundary (Section~\ref{sec:limits}). Unlike anomaly, drift, and
+uncertainty monitors, STAK-PSAL monitors preservation of safety-relevant
+distinguishability rather than unusual traces, distributional shift, or
+confidence loss.
+The architecture is also deployment-conservative: STAK-PSAL may run as a read-only sidecar with full observational access but no actuation authority.
 
 % ── 2. Failure of Static Admissibility ────────────────────────────────────────
 \section{Failure of Static Admissibility}
@@ -202,6 +203,9 @@ STAK-PSAL presumes white-box access to $M_t$. It also presumes an
 observational enrichment pathway: either mutable access to the weight
 matrix or an equivalent runtime resource such as secondary sensing,
 adaptive sampling, or operator escalation.
+
+\paragraph{Read-only sidecar deployment.}
+STAK-PSAL is intended to be deployable outside the authority-bearing control loop. In its conservative industrial configuration, the monitor runs as a read-only sidecar with mirrored access to sensor streams, controller traces, actuator-command logs, and derived state estimates, but with no authority to issue commands, modify thresholds, reset controller state, or actuate the plant. Its outputs are advisory and evidential: it emits monitor states, fatigue measurements, meta-review warnings, and rupture certificates. The plant controller, safety interlock, or human operator remains the only authority capable of intervention. This separation is important because the monitor is asked to judge the structural reliability of an observational reduction, not to replace the controller whose reductions it audits. Initial deployment can therefore proceed in shadow mode: STAK-PSAL observes the same operational history as the controller, records cumulative fatigue and enrichment use, and produces signed evidence without introducing a new actuation pathway.
 
 \subsection{The Degradation Trajectory}
 
@@ -219,30 +223,11 @@ boost: on detecting that $d_t$ has fallen into
 $(\ecollapse, \emeta]$, the dimension $j^* = \arg\max_j |x_j - y_j|$
 in row 0 of $W_t$ receives a one-time additive boost $b > 0$.
 
-The weight-boost is one instance of a broader family of observational
-resolution enhancements; Table~\ref{tab:enrichment} lists mechanisms by
-deployment class. The theoretical content is independent of the
-particular mechanism.
-
-\begin{table}[H]
-\centering
-\caption{Enrichment mechanisms by deployment class}
-\label{tab:enrichment}
-\small
-\begin{tabular}{ll>{\raggedright\arraybackslash}p{.34\linewidth}}
-\toprule
-\textbf{Deployment class} & \textbf{Mechanism} & \textbf{Realisation} \\
-\midrule
-Trusted / upgradeable & Matrix modification & additive boost in row 0 (demonstrator) \\
-                      & Adaptive sampling   & raise polling rate on discriminating dim.\ \\
-\midrule
-Adversarial / certified & Sensor escalation      & secondary sensor engagement \\
-                        & Modality augmentation  & corroborating modality activation \\
-                        & Operator escalation    & operator notification \\
-\bottomrule
-\end{tabular}
-\end{table}
-
+The weight-boost is one representative observational-resolution
+enhancement. In trusted deployments, enrichment may modify $W_t$ or raise
+sampling rate; in certified or adversarial deployments, it may activate
+secondary sensors, corroborating modalities, or operator escalation. The
+theory requires only an estimated gain $g_m$ and loss term $\ell_m\Delta_t$.
 The projected post-intervention margin $d^{\mathrm{post}}_m$ for mechanism $m$ is:
 \[
 d^{\mathrm{post}}_m = d_t - \ell_m \Delta_t + q_m g_m .
@@ -263,6 +248,15 @@ metastable behaviour. A reclosed system will reach the warning threshold
 again sooner than one never destabilised. This budget asymmetry is the
 operational mechanism behind the MRP (Section~\ref{sec:mrp}); adversarial
 implications are in Section~\ref{sec:security}.
+
+The finite budget creates two dual threats. Horizon Debt occurs when the
+remaining rupture horizon is no greater than the admissibility lag, so
+waiting is no longer certified even though rupture has not yet occurred.
+Adversarial elasticity inversion occurs when repeated boundary-near
+perturbations consume recovery elasticity without corresponding physical
+degradation. The first is a timing failure; the second is a provenance
+failure. Both are invisible to a monitor that observes only current
+closure status.
 
 % ── 3. Admissibility Definitions ──────────────────────────────────────────────
 \section{Admissibility Definitions}
@@ -335,24 +329,10 @@ Let \(V_m(t)\in\{0,1,2,3\}\) denote the viability rank of mechanism \(m\): not v
 \]
 It records the collapse of the repair envelope, not the collapse of the observation margin.
 
-Table~\ref{tab:vocab} gives the RV reading of each term.
-
-\begin{table}[H]
-\centering
-\caption{STAK-PSAL terminology in standard RV reading}
-\label{tab:vocab}
-\small
-\begin{tabular}{ll}
-\toprule
-\textbf{STAK-PSAL term} & \textbf{RV reading} \\
-\midrule
-$\varepsilon$-admissibility  & runtime-checkable separation invariant \\
-Rupture                      & monitor indistinguishability failure \\
-Metastable closure           & confirmed recovery with accumulated admissibility deficit \\
-\st{critical} forecast       & anticipatory violation signal; leading indicator \\
-\bottomrule
-\end{tabular}
-\end{table}
+In RV terms, $\varepsilon$-admissibility is a runtime-checkable
+separation invariant; rupture is monitor indistinguishability failure;
+metastable closure is confirmed recovery with accumulated admissibility
+deficit; and the \st{critical} forecast is an anticipatory violation signal.
 
 % ── 4. The Three-State Monitor ────────────────────────────────────────────────
 \section{The Three-State Monitor}
@@ -390,7 +370,7 @@ monitoring halts. Thresholds: $\ecollapse = 0.08$, $\emeta = 0.22$
 
 Table~\ref{tab:transitions} gives the complete state machine.
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{State transitions (C = \st{closed}, M = \st{meta\_review},
   H = \st{hard\_rupture})}
@@ -464,7 +444,7 @@ mathematical regimes (Table~\ref{tab:layers}): theorems over strict
 admissibility (Definition~\ref{def:admissibility}), the monitor over
 $\varepsilon$-admissibility (Definition~\ref{def:eps}).
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{Two layers of the monitor architecture}
 \label{tab:layers}
@@ -515,15 +495,27 @@ limit.
 \end{lemma}
 
 \begin{proof}[Sketch]
-Multiplicative decay of $W_t$ gives $|W_t(x - y)| \propto (1-\delta)^{t'
-- t}$. Lipschitz $\sigma$ yields $d_{t'} \leq (1-\delta)^{t' - t} d_t /
-c$ for $c$ absorbing the Lipschitz factor and projection geometry;
-solving $(1-\delta)^T \varepsilon \leq \varepsilon'$ gives the bound.
+Multiplicative decay gives $W_{t'}=(1-\delta)^T W_t$ for $T=t'-t$.
+For a fixed critical pair, the pre-activation separation therefore scales
+as $(1-\delta)^T\|W_t(x-y)\|$. Since $\sigma$ is Lipschitz, there is a
+constant $C$ determined by $L_\sigma$ and the chosen projection norm such
+that $d_{t'}\leq C(1-\delta)^T d_t$. Absorbing $C$ into the operational
+choice of threshold, or equivalently replacing $\varepsilon'$ by
+$\varepsilon'/C$, reduces the crossing condition to
+$(1-\delta)^T\varepsilon\leq\varepsilon'$. Solving for $T$ gives the
+stated ceiling bound. The Lipschitz constant is therefore not an
+additional empirical assumption about the run; it is the regularity
+condition that prevents the strict-to-$\varepsilon$ bridge from becoming
+an uncontrolled discontinuity.
 \end{proof}
 
 The machine-checked existential bridge guarantees threshold crossing in
 bounded steps; the explicit logarithmic ceiling bound is the quantitative
-refinement isolating the precise horizon.
+refinement isolating the precise horizon. The role of the bound is to
+make the operational approximation measurable: the strict Coq layer gives
+the limiting structural relation, while the OCaml monitor tracks the
+finite margin at which that relation becomes actionable. The approximation
+is therefore a controlled slope, not a cliff between proof and prototype.
 
 \paragraph{Timely admissibility.}
 Strict admissibility is instantaneous. It says that the current observation map preserves the distinctions required by \(\Phi\). Runtime assurance requires that this preservation remain actionable before the rupture horizon closes. Let \(h_t\) be the estimated remaining rupture horizon and \(L_t\) the admissibility lag of the monitor. Define
@@ -656,48 +648,18 @@ boost levels.
 \section{OCaml/Coq Implementation}
 \label{sec:impl}
 
-The monitor is implemented in OCaml~4.14; formal invariants are
-machine-checked in Coq~8.18. Table~\ref{tab:modules} lists module
-responsibilities.
-
-\begin{table}[H]
-\centering
-\caption{Module responsibilities}
-\label{tab:modules}
-\small
-\begin{tabular}{l>{\raggedright\arraybackslash}p{.58\linewidth}}
-\toprule
-\textbf{Module} & \textbf{Responsibility} \\
-\midrule
-\texttt{types.ml}
-  & Core types and status variants \\
-\texttt{lnp.ml}
-  & Reduction $M_t = \sigma(W_t \cdot z)$; degradation; enrichment \\
-\texttt{admissibility.ml}
-  & $\Phi$; three-way check (\texttt{Admissible} / \texttt{Drifting} / \texttt{HardRupture}) \\
-\texttt{tension.ml}
-  & Estimators: $\bar{d}_t$, $R_t$, $\dot{T}_t$ \\
-\texttt{machine.ml}
-  & State transitions; $E_r^{(t)}$; $\mathcal{F}_n$ \\
-\texttt{instability.ml}
-  & \st{stable}/\st{strained}/\st{critical} classification \\
-\texttt{certificate.ml}
-  & Rupture certificate builder and JSON serialiser \\
-\texttt{scenario.ml}
-  & Four-modality industrial benchmark scenario \\
-\texttt{formal/stak\_psal.v}
-  & Coq proofs of invariants (T1)--(T5) of Theorem~\ref{thm:coq} \\
-\texttt{formal/contraction\_core.v}
-  & Coq proof of geometric multi-step contraction lemma \\
-\texttt{formal/threshold\_bridge.v}
-  & Coq proof of finite $\varepsilon$-to-$\varepsilon'$ threshold
-    crossing (Lemma~\ref{lem:opbound}, existential form) \\
-\texttt{formal/metastable\_recovery.v}
-  & Coq proofs of structural separation, admissible visibility
-    failure, and certificate soundness hierarchy \\
-\bottomrule
-\end{tabular}
-\end{table}
+{\sloppy
+The monitor is implemented in OCaml~4.14 and Coq~8.18. The OCaml modules separate
+core types (\texttt{types.ml}), reduction/degradation/enrichment
+(\texttt{lnp.ml}), admissibility checks (\texttt{admissibility.ml}),
+estimators (\texttt{tension.ml}), state transitions and fatigue
+(\texttt{machine.ml}), instability classification
+(\texttt{instability.ml}), certificate emission (\texttt{certificate.ml}),
+and the four-modality benchmark (\texttt{scenario.ml}). The Coq layer
+contains the invariant file \texttt{formal/stak\_psal.v}, contraction
+core \texttt{formal/contraction\_core.v}, threshold bridge
+\texttt{formal/threshold\_bridge.v}, and metastable recovery semantics
+\texttt{formal/metastable\_recovery.v}.\par}
 
 Each step computes $(d_t,\bar{d}_t,\dot{T}_t,R_t,E_r^{(t)})$ followed
 by state transition and optional certificate emission. Enrichment fires
@@ -734,9 +696,9 @@ $t = 61$ with identical $d_t$ and status; R2 re-enters
 steps before, with structural divergence already visible in
 $\mathcal{F}_n$.
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.92\linewidth]{fig4_comparison.pdf}
+\includegraphics[width=0.86\linewidth]{fig4_comparison.pdf}
 \caption{R3 (stable recovery, left) and R2 (metastable closure, right) with
   the same seed and identical parameters except boost (0.25 vs.\ 0.05).
   Both reclose at $t = 61$; $d_t$ and status are indistinguishable at that
@@ -770,7 +732,7 @@ $b_{\mathrm{crit}} \in \{0.05, 0.10, 0.15, 0.20, 0.25\}$ for $\delta
 (never entered \st{meta\_review}), 10 R1 (immediate failure), 1,071 R2
 (metastable), 5,263 R3 (stable recovery).
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{CRITICAL confusion matrices (stochastic and benchmark sweeps)}
 \label{tab:conf-stoch}
@@ -796,7 +758,7 @@ negative is an undetected rupture. Mean lead time is 11.6 steps overall
 (median 9; range 1 to 77), decreasing with $\delta$ from 16.8 steps at
 $\delta = 0.015$ to 9.4 at $\delta = 0.030$. The minimum of 1 step at $\delta \geq 0.025$ is the scenario formalised as Horizon Debt in Section~\ref{sec:limits}: the system reaches the minimum admissibility lag before an intervention can be certified.
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{Fatigue and elasticity by regime (stochastic sweep)}
 \label{tab:fatigue}
@@ -817,9 +779,9 @@ Negative elasticity is necessary but not sufficient for rupture: 100\%
 of R2 and R1 runs exhibit $\min E_r < 0$, but 20\% of R3 runs do as well.
 \end{observation}
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.75\linewidth]{fig2_regime.pdf}
+\includegraphics[width=0.70\linewidth]{fig2_regime.pdf}
 \caption{Regime structure (6,500 stochastic runs). Left: R3 fraction
 vs.\ boost $b$ for each $\delta$; dotted lines mark
 $b_{\mathrm{crit}}(\delta)$. Right: phase diagram; blue = R3, red =
@@ -851,9 +813,16 @@ extends the corroborating evidence window.
 
 Benchmark recall and precision are both 100\% (right two columns of
 Table~\ref{tab:conf-stoch}); mean lead time is 13.7 steps (range 7 to
-24).
+24). The benchmark is not yet an adversarial benchmark: perturbations are
+stochastic and modality-specific, not selected by an attacker to exhaust
+enrichment. The adversarial question is therefore separated from the
+empirical claim made here. Section~\ref{sec:security} identifies the
+attack surface and the compound signal required for suspicion, but a
+future evaluation should add a bounded probing trace that compares
+$\mathcal{F}_n$ accumulation under malicious enrichment exhaustion against
+the R3 stable-recovery baseline.
 
-\begin{table}[H]
+\begin{table}[tbp]
 \centering
 \caption{Cross-setting comparison of key metrics}
 \label{tab:comparison}
@@ -942,7 +911,7 @@ satisfied \eqref{eq:critical}.
 \begin{proof}[Empirical support]
 (i) follows from Table~\ref{tab:fatigue}: R2 mean $\mathcal{F}_n = 2.462$,
 R3 mean $= 0.165$, ratio $14.9\times$. (ii) follows from the same table:
-$\min E_r < 0$ for 100\% of R2 runs. (iii) follows from Table~\ref{tab:mrp}:
+$\min E_r < 0$ for 100\% of R2 runs. (iii) follows from the benchmark episode statistics:
 majorities exhibit both decreasing $d_{\min}^{(k)}$ and non-decreasing
 $\mathcal{F}^{(k)}$ across episodes. (iv): in 2,159 ruptured runs, none
 reached \st{hard\_rupture} without first satisfying \eqref{eq:critical}.
@@ -965,24 +934,11 @@ while the monitor reads \st{closed}.\par}
 The empirical 13.8--14.9$\times$ fatigue ratio is not formally proved;
 it is an experimental observation over the evaluated model family.
 
-\begin{table}[H]
-\centering
-\caption{Episode-level monotonicity in R2 runs with $K \geq 2$ episodes
-  ($n = 190$, multi-modal benchmark)}
-\label{tab:mrp}
-\begin{tabular}{lrr}
-\toprule
-\textbf{Condition} & \textbf{Count} & \textbf{Fraction} \\
-\midrule
-$d_{\min}^{(k+1)} < d_{\min}^{(k)}$ for all $k$           & 123/190 & 65\% \\
-$\mathcal{F}^{(k+1)} \geq \mathcal{F}^{(k)}$ for all $k$  & 118/190 & 62\% \\
-$\bar{E}_r^{(k+1)} < \bar{E}_r^{(k)}$ for all $k$         &  72/190 & 38\% \\
-All three simultaneously                                    &  72/190 & 38\% \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Separation and fatigue trend conditions hold for majorities; elasticity
+For R2 benchmark runs with $K \geq 2$ episodes ($n=190$), decreasing
+$d_{\min}^{(k)}$ holds in 123 cases (65\%), non-decreasing
+$\mathcal{F}^{(k)}$ in 118 cases (62\%), and decreasing
+$\bar{E}_r^{(k)}$ in 72 cases (38\%). Separation and fatigue trend
+conditions hold for majorities; elasticity
 strict monotonicity (38\%) is weaker since episode-to-episode noise
 disrupts strict ordering while the cumulative trend in claim (i)
 remains clean. A status-only monitor cannot distinguish a system that
@@ -994,6 +950,7 @@ stability proof.
 \section{Security and Deployment Constraints}
 \label{sec:security}
 
+The read-only sidecar assumption fixes the authority boundary for the adversarial analysis: an attacker may exhaust enrichment capacity through the observed system trajectory, but STAK-PSAL itself does not become an actuator.
 A runtime-modifiable reduction operator introduces an attack surface
 absent in immutable certified pipelines; three risk classes follow
 from the enrichment structure (Section~\ref{sec:failure}).
@@ -1023,9 +980,12 @@ in isolation (Table~\ref{tab:fatigue}).
 
 Mitigation is partial and deployment-dependent. Enrichment triggers
 should authenticate warning provenance; mutable pathways should be
-restricted to a rate-limited API surface; immutable variants
-(Table~\ref{tab:enrichment}) preserve the monitoring contract without
-exposing the weight matrix. A full adversarial analysis is a defined
+restricted to a rate-limited API surface; immutable variants preserve the monitoring contract without
+exposing the weight matrix. The security claim is deliberately bounded:
+STAK-PSAL does not identify an attacker from negative elasticity alone.
+It identifies a structural symptom that should not occur when the
+physical degradation proxy remains bounded and the enrichment pathway is
+being repeatedly exercised. A full adversarial analysis is a defined
 open boundary of the present work.
 
 % ── 10. Related Work ──────────────────────────────────────────────────────────
@@ -1075,8 +1035,14 @@ These hold for cyber-physical processes; transfer to discrete generative
 systems (LLM agents and similar) is not clean: token-level policies do
 not exhibit multiplicative weight decay, the embedding analogue of
 separation margin is not continuous along a trajectory, and the
-operational meaning of enrichment is undefined. Applicability to
-discrete generative systems is an open question.
+operational meaning of enrichment is undefined. A possible analogue of
+enrichment would be adaptive resampling, tool-mediated verification,
+temperature reduction, or retrieval expansion after a warning signal; but
+none of these is a direct counterpart of restoring a physical separation
+margin. Applicability to discrete generative systems is therefore not an
+extension claimed here. It is a separate research problem: first define a
+monitorable discrete margin, then define what counts as finite recovery
+elasticity for that margin.
 
 STAK-PSAL does not prove inevitability of rupture. The monitor predicts
 bounded rupture horizon under continued degradation dynamics within the
@@ -1113,6 +1079,7 @@ runtime quantity. STAK-PSAL therefore separates three conditions that ordinary r
 % ── References ────────────────────────────────────────────────────────────────
 \bibliographystyle{splncs04}
 
+{\small
 \begin{thebibliography}{99}
 
 \bibitem{leucker2009brief}
@@ -1255,7 +1222,6 @@ condition-based maintenance.
 \textit{Mechanical Systems and Signal Processing}, 20(7):1483--1510, 2006.
 
 \end{thebibliography}
-
-\end{document}
+}
 
 \end{document}
