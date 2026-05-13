@@ -74,11 +74,9 @@
 \begin{abstract}
 Operational closure does not imply structural safety: admissibility
 degradation accumulates historically and is not reset on reclosure. This
-condition is metastable closure. STAK-PSAL detects it via $\mathcal{F}_n$,
+condition is metastable closure. We extend admissibility with a temporal guard, timely admissibility, which fails when the remaining rupture horizon is no greater than the monitor's admissibility lag. STAK-PSAL detects metastable closure via $\mathcal{F}_n$,
 a cumulative fatigue metric invisible to instantaneous monitors. A formal
-layer (machine-checked Coq proofs of admissibility invariants, the
-contraction bridge, and the structural separation between operational
-closure and metastable closure) grounds an operational
+layer (machine-checked Coq proofs of structural separation and threshold contraction) grounds an operational
 $\varepsilon$-admissible OCaml monitor. Metastably closed runs exhibit
 13.8--14.9$\times$ higher $\mathcal{F}_n$ than stably recovered runs
 with identical runtime status; in the evaluated model family, the
@@ -162,13 +160,13 @@ Output monitoring remains silent while $d_t$ approaches $\ecollapse$.}
 
 The principal contribution is the identification, formal
 characterisation, and operational detection of \emph{metastable closure}: a run classified as operationally
-closed while carrying a bounded rupture horizon. \emph{First}, structural
-divergence under operational equivalence is machine-checked in the
+closed while carrying a bounded rupture horizon. Closure excludes present rupture, but it does not exclude horizon collapse.
+\emph{First}, structural divergence under operational equivalence is machine-checked in the
 metastable recovery semantics (Section~\ref{sec:mrp}). \emph{Second},
 a bridge from strict to $\varepsilon$-admissibility: under geometric
 contraction, threshold crossing from $\varepsilon$ to any
 $\varepsilon' < \varepsilon$ is guaranteed in bounded steps
-(Section~\ref{sec:opapprox}). \emph{Third}, $\mathcal{F}_n$ is
+(Section~\ref{sec:opapprox}). \emph{Third}, we introduce timely admissibility and Horizon Debt to formalise the collapse of the repair envelope when the remaining horizon falls below the admissibility lag. \emph{Fourth}, $\mathcal{F}_n$ is
 validated as a predictive estimator: in the evaluated model family,
 \st{critical} has zero false negatives and mean lead time 11.6 to 13.7
 steps across 7,800 runs (Sections~\ref{sec:monitor}--\ref{sec:experiments}).
@@ -213,7 +211,7 @@ At $\delta = 0.020$, rupture occurs at step 114; the horizon is a function
 of degradation rate and initial margin, neither readable from the initial
 admissibility certificate. Verification of $M_0$ does not certify $M_{71}$.
 
-\subsection{The Enrichment Response as Observational Resolution Enhancement}
+\subsection{Enrichment Triage as Observational Resolution Enhancement}
 
 Enrichment is the operational escalation triggered on entry to the
 warning band. In the demonstrator it is realised as a targeted weight
@@ -245,17 +243,16 @@ Adversarial / certified & Sensor escalation      & secondary sensor engagement \
 \end{tabular}
 \end{table}
 
-For adversarial or certified deployments, the immutable variants in
-Table~\ref{tab:enrichment} are not optional engineering alternatives but
-the required deployment models: mutable matrix modification is appropriate
-only in trusted demonstrators or authenticated upgradeable environments.
-The formal admissibility obligations are unchanged under these
-substitutions, although each deployment mechanism requires its own
-implementation proof.
+The projected post-intervention margin $d^{\mathrm{post}}_m$ for mechanism $m$ is:
+\[
+d^{\mathrm{post}}_m = d_t - \ell_m \Delta_t + q_m g_m .
+\]
 
-Enrichment restores $\varepsilon$-admissibility if $d_t$ rises above
-$\emeta$; sufficient boost ($b \geq b_{\mathrm{crit}}(\delta)$) sustains
-it indefinitely, insufficient boost delays but does not prevent rupture.
+\[
+\mathcal{E}^{\mathrm{res}}_m(t) = q_m g_m - \ell_m \Delta_t .
+\]
+
+A mechanism is survival-viable if $d^{\mathrm{post}}_m > \ecollapse$, reclosure-viable if $d^{\mathrm{post}}_m > \emeta$, and durably viable if it restores $d^{\mathrm{post}}_m > \emeta$ while leaving post-intervention horizon greater than the admissibility lag.
 
 \paragraph{Enrichment budget.}
 Enrichment fires once per \st{meta\_review} entry; the boosted weight
@@ -328,6 +325,15 @@ $\mathcal{E} : \mathit{States} \times \mathit{History} \to \mathbb{R}$
 that tracks a structural property; it signals proximity to rupture
 without certifying it.
 \end{definition}
+
+\paragraph{Horizon debt certificate.}
+A \texttt{HorizonDebtCertificate} is emitted before hard rupture when \(h_t\leq L_t\). It records that the system is not yet ruptured, but is no longer safe to wait. In the illustrative run, the certificate fires at \(t=49\) with \(d_t=0.0915\), \(\epsilon_c=0.08\), \(h_t=2\), and \(L_t=2\). Adaptive sampling is survival-viable: it keeps \(d_t\) above \(\epsilon_c\), but does not restore \(d_t>\epsilon_m\). Hard rupture follows at \(t=53\), showing that the certificate identified a narrowed repair envelope, not an already ruptured state.
+
+Let \(V_m(t)\in\{0,1,2,3\}\) denote the viability rank of mechanism \(m\): not viable, survival-viable, reclosure-viable, or durably viable. The one-step opportunity cost is
+\[
+\mathrm{OppCost}_m(t)=\max(0,V_m(t-1)-V_m(t)).
+\]
+It records the collapse of the repair envelope, not the collapse of the observation margin.
 
 Table~\ref{tab:vocab} gives the RV reading of each term.
 
@@ -518,6 +524,19 @@ solving $(1-\delta)^T \varepsilon \leq \varepsilon'$ gives the bound.
 The machine-checked existential bridge guarantees threshold crossing in
 bounded steps; the explicit logarithmic ceiling bound is the quantitative
 refinement isolating the precise horizon.
+
+\paragraph{Timely admissibility.}
+Strict admissibility is instantaneous. It says that the current observation map preserves the distinctions required by \(\Phi\). Runtime assurance requires that this preservation remain actionable before the rupture horizon closes. Let \(h_t\) be the estimated remaining rupture horizon and \(L_t\) the admissibility lag of the monitor. Define
+\[
+\mathrm{TimelyAdmissible}(M_t,\Phi,h_t,L_t)
+:=
+\mathrm{Admissible}(M_t,\Phi)\wedge L_t<h_t.
+\]
+Horizon Debt is the condition \(h_t\leq L_t\). It does not assert rupture. It asserts loss of safe waiting:
+\[
+\mathtt{META\_REVIEW}_t \wedge h_t\leq L_t
+\Rightarrow \neg \mathrm{SafeToWait}_t .
+\]
 
 \subsection{Bounding the Operational Approximation}
 \label{sec:opbound-empirical}
@@ -775,10 +794,7 @@ recovering run is indistinguishable from one that will rupture. The
 cost of a false positive is unnecessary inspection; that of a false
 negative is an undetected rupture. Mean lead time is 11.6 steps overall
 (median 9; range 1 to 77), decreasing with $\delta$ from 16.8 steps at
-$\delta = 0.015$ to 9.4 at $\delta = 0.030$. The minimum of 1 step at
-$\delta \geq 0.025$ is the failure mode noted in Section~\ref{sec:limits}:
-very rapid degradation can reach $\ecollapse$ before \eqref{eq:critical}
-activates.
+$\delta = 0.015$ to 9.4 at $\delta = 0.030$. The minimum of 1 step at $\delta \geq 0.025$ is the scenario formalised as Horizon Debt in Section~\ref{sec:limits}: the system reaches the minimum admissibility lag before an intervention can be certified.
 
 \begin{table}[H]
 \centering
@@ -994,7 +1010,7 @@ immediate admissibility check but corrupt downstream behaviour.
 perturbations near the boundary can deplete the enrichment budget,
 driving the system toward the R2 regime even when each individual
 perturbation is benign. The attack surface is therefore not the physical process alone, but the
-finite enrichment capacity of the observational boundary itself.
+finite enrichment capacity of the observational boundary itself. Horizon Debt sharpens this attack surface: an adversary need not force immediate rupture, but only consume enough repair horizon that authenticated enrichment mechanisms age out before they can arrive.
 
 Adversarial exhaustion is more dangerous than direct drive to rupture:
 repeated bounded perturbations force \st{meta\_review} entry, consume
@@ -1016,51 +1032,14 @@ open boundary of the present work.
 \section{Related Work}
 \label{sec:related}
 
-\textbf{Runtime verification.}
-Classical RV monitors execution traces against temporal
-specifications~\cite{leucker2009brief,havelund2018rule}. STAK-PSAL
-monitors the \emph{reduction operator} $M_t$ rather than the output
-trace, and anticipates violation before it is confirmed.
+\textbf{Runtime verification and drift detection.}
+Classical RV monitors traces against temporal specifications~\cite{leucker2009brief,havelund2018rule}; STAK-PSAL instead monitors the reduction operator $M_t$ to anticipate violations. Unlike conventional drift monitors evaluating current observation space, STAK-PSAL evaluates the cumulative structural cost to maintain admissibility. Predictive monitoring~\cite{zhao2021predictive,chen2009monitoring} is the closest analogue, instantiated here for admissibility degradation via $\mathcal{F}_n$.
 
-\textbf{Drift detection.}
-Conventional drift monitors evaluate deviation in current observation
-space. STAK-PSAL instead evaluates the cumulative structural cost
-required to maintain admissibility under repeated destabilisation.
+\textbf{Monitorability and formal methods.}
+The monitorability question~\cite{francalanza2017theory,bauer2011runtime} is here specialised to admissibility degradation, answering affirmatively for continuous trajectories. While static interpretation~\cite{cousot1977abstract} and CEGAR~\cite{clarke2000counterexample} establish properties pre-deployment, STAK-PSAL monitors whether the runtime reduction preserves the requisite distinctions.
 
-\textbf{Predictive and parametric monitoring.}
-Parametric monitoring~\cite{chen2009monitoring} and predictive
-monitoring~\cite{zhao2021predictive} are the closest RV analogues;
-this paper instantiates predictive monitoring for admissibility
-degradation, with $\mathcal{F}_n$ as the domain-specific degradation
-functional.
-
-\textbf{Monitorability and observability.}
-The monitorability question~\cite{francalanza2017theory,bauer2011runtime,falcone2010predictive}
-asks what properties are monitorable and with what guarantee;
-STAK-PSAL specialises this to admissibility degradation, answering
-affirmatively for continuous degradation trajectories. Output-layer
-monitoring~\cite{tuncali2018simulation,seshia2018verified} assesses
-whether outputs are in-distribution; STAK-PSAL monitors $M_t$
-directly.
-
-\textbf{Cyber-physical systems, runtime assurance, and PHM.}
-Runtime assurance for CPS~\cite{seshia2015towards,schierman2015runtime}
-establishes runtime properties on autonomous systems with continuous
-dynamics; STAK-PSAL extends these patterns to the observation layer.
-Prognostics and Health Management encompasses degradation
-indicators~\cite{chiang2014fault} and latent fatigue
-accumulation~\cite{jardine2006review}; $\mathcal{F}_n$ specialises the
-PHM fatigue functional to observational admissibility. The ecological
-distinction between bouncing back and structural
-recovery~\cite{pimm1984complexity} maps directly onto the R2/R3 regime
-split.
-
-\textbf{Formal methods and static analysis.}
-Static abstract interpretation~\cite{cousot1977abstract} and
-CEGAR~\cite{clarke2000counterexample} establish soundness or refinement
-properties before deployment. STAK-PSAL monitors whether the runtime
-reduction continues to preserve the distinctions on which such
-properties depend.
+\textbf{Cyber-physical systems and PHM.}
+Runtime assurance for CPS~\cite{seshia2015towards,schierman2015runtime} is extended to the observation layer. Prognostics and Health Management (PHM) tracks latent fatigue accumulation~\cite{jardine2006review,chiang2014fault}; $\mathcal{F}_n$ specialises this to observational admissibility.
 
 % ── 11. Applicability and Domain Boundaries ───────────────────────────────────
 \section{Applicability, Limitations, and Domain Boundaries}
@@ -1075,9 +1054,7 @@ thresholds and require confidence quantification. The \st{critical}
 thresholds were set on the 13 deterministic runs of
 Section~\ref{sec:det-sweep}; the stochastic and benchmark sweeps are
 out-of-calibration evaluations, not cross-validation. The
-zero-false-negative claim is model-specific: very rapid degradation can
-cause $d_t \leq \ecollapse$ before \eqref{eq:critical} activates
-(minimum lead time of 1 step at $\delta \geq 0.025$).
+zero-false-negative claim is model-specific. Rapid degradation is no longer merely a reduced-lead-time limitation. It is represented by Horizon Debt: a state in which admissibility may still hold instantaneously, but timely admissibility has failed because the remaining rupture horizon is no greater than the monitor's lag. If no certified enrichment mechanism remains viable, the monitor cannot certify enrichment-mediated recovery. This does not prove physical inevitability of rupture; it proves only that recovery is no longer certified under the current mechanism catalogue and gain contracts.
 
 \textbf{Proof and runtime gap.} The Coq theorems use
 Definition~\ref{def:admissibility} (exact equality); the OCaml monitor
@@ -1131,9 +1108,7 @@ and output-level monitors cannot detect: $\mathcal{F}_n$ is
 13.8--14.9$\times$ higher in metastably closed runs. Runtime assurance is therefore path-dependent rather than purely
 state-dependent: admissibility may hold at time \(t\) while the history
 required to preserve it still carries a bounded rupture horizon. Safety-relevant distinguishability must therefore be monitored as a
-runtime quantity. Structural fatigue is not visible in the current
-output alone; metastable closure is detected only when the monitor
-retains memory of the path by which closure was reached.
+runtime quantity. STAK-PSAL therefore separates three conditions that ordinary runtime status collapses: present admissibility, timely admissibility, and durable recovery. Structural fatigue records the historical cost of remaining admissible; Horizon Debt records the moment at which admissibility remains extensionally visible but operationally too late.
 
 % ── References ────────────────────────────────────────────────────────────────
 \bibliographystyle{splncs04}
@@ -1280,5 +1255,7 @@ condition-based maintenance.
 \textit{Mechanical Systems and Signal Processing}, 20(7):1483--1510, 2006.
 
 \end{thebibliography}
+
+\end{document}
 
 \end{document}
